@@ -276,6 +276,20 @@ def cmd_journal(a):
         print(e["seq"], e["ts"][:19], e["kind"], e["symbol"] or "", json.dumps(e["payload"], default=str)[:160])
 
 
+def cmd_research(a):
+    from quantai.journal import analyze
+    from quantai.research import suggest
+    rt = _rt()
+    val = rt.read_json("latest_backtest.json") or {}
+    props = suggest(val, analyze(rt.journal))
+    for pr in props:
+        rt.journal.append("proposal", pr.to_dict(), strategy=pr.strategy)
+        print(f"[{pr.kind}] {pr.strategy}: {pr.evidence}\n    -> {pr.suggestion}")
+    if not props:
+        print("no proposals (run `quantai validate` first)")
+    print("\nProposals are journaled only; none is activated automatically.")
+
+
 def cmd_serve(a):
     import uvicorn
     from quantai.api.app import create_app
@@ -306,6 +320,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--interval", type=int, default=900); sp.set_defaults(f=cmd_paper)
     sp = sub.add_parser("killswitch"); sp.add_argument("action", choices=["on", "off", "status"]); sp.add_argument("--reason"); sp.set_defaults(f=cmd_killswitch)
     sub.add_parser("report").set_defaults(f=cmd_report)
+    sub.add_parser("research").set_defaults(f=cmd_research)
     sp = sub.add_parser("journal"); sp.add_argument("action", choices=["list", "verify", "note"]); sp.add_argument("--kind"); sp.add_argument("-n", type=int, default=30)
     sp.add_argument("--text"); sp.add_argument("--symbol"); sp.add_argument("--lesson", action="store_true"); sp.set_defaults(f=cmd_journal)
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8000); sp.set_defaults(f=cmd_serve)

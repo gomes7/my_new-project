@@ -39,7 +39,7 @@ BEGIN SELECT RAISE(ABORT, 'journal is append-only'); END;
 """
 
 KINDS = {"signal", "order", "fill", "partial", "exit", "cancel", "outcome", "note", "lesson", "correction",
-         "strategy_version", "promotion", "alert", "killswitch", "system", "scan", "paper_state", "daily_report"}
+         "strategy_version", "promotion", "alert", "killswitch", "system", "scan", "paper_state", "daily_report", "proposal"}
 
 
 def _default(o: Any) -> Any:
@@ -133,7 +133,8 @@ def analyze(journal: Journal) -> dict:
     if sig:
         s = pd.DataFrame(sig)
         res["approval_rate"] = float((s["decision"] == "approved").mean())
-        reasons = s.explode("reasons")["reasons"].dropna()
+        # Normalise parametrised reasons, e.g. "score_below_threshold(66.7<80.0)" -> "score_below_threshold"
+        reasons = s.explode("reasons")["reasons"].dropna().str.replace(r"\(.*\)$|_until_.*$", "", regex=True)
         res["top_rejection_reasons"] = reasons.value_counts().head(10).to_dict()
     if out:
         o = pd.DataFrame(out)

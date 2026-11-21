@@ -22,9 +22,10 @@ validation with promotion gates, an append-only journal, alerts and a dashboard.
 | Risk engine | Sizing from stop distance incl. costs and FX; daily/weekly loss, drawdown, loss-streak cooldown, max positions, total & correlated exposure, leverage, stop sanity, spread, data quality, event blackout, kill switch. |
 | Backtesting | Event-driven multi-instrument engine, next-bar fills, spread/slippage/commission/holding costs, walk-forward, bootstrap CI, Monte Carlo drawdown/ruin, parameter sensitivity, promotion gate. |
 | Paper trading | Live data + simulated orders via the *same* decision pipeline and simulator; persistent state; one decision per closed bar. |
+| Research | `quantai research` turns validation/journal evidence into journaled proposals (retire / redesign / filter / hypothesis); never auto-activated. Strategy versions fingerprinted and journaled with promotion decisions. |
 | Journal | Every signal (approved or rejected) with reasons; fills, exits, outcomes, lessons; append-only with hash chain; pattern analysis. |
 | Ops | Alerts (cooldown, webhook), kill switch, FastAPI + dashboard, JSON logs with secret redaction, Docker/compose, CI. |
-| Tests | 97 offline tests + 2 live-endpoint tests (`-m network`). |
+| Tests | 98 offline tests + 2 live-endpoint tests (`-m network`). |
 
 ## Install & run
 
@@ -45,6 +46,7 @@ quantai regime-eval SPX                  # regime classifier calibration on hist
 quantai paper --cycles 1                 # one paper-trading cycle (use --cycles N --interval S)
 quantai killswitch on --reason "manual"  # stop new trades, cancel pending simulated orders
 quantai report                           # daily target feasibility + journal analysis
+quantai research                         # evidence-based proposals (journaled, never auto-activated)
 quantai journal verify                   # tamper check
 quantai serve                            # dashboard at http://127.0.0.1:8000  (API docs at /docs)
 ```

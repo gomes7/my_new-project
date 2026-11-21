@@ -77,3 +77,16 @@ def test_monitoring_alerts():
     assert calm == []
     q = QualityReport(QualityStatus.FAILED, [QualityIssue("stale", QualityStatus.FAILED, "old")])
     assert data_alerts("X", q)[0].severity == "critical"
+
+
+def test_research_proposals_are_never_activated():
+    from quantai.research import suggest
+    val = {"strategies": {
+        "a": {"oos_trades": 6, "ci95": (-1, 0.2)},
+        "b": {"oos_trades": 200, "ci95": (-0.3, -0.04), "folds": []},
+        "c": {"oos_trades": 200, "ci95": (-0.1, 0.1), "param_stability": {"rr": {"unique": 3}},
+              "folds": [{"test_expectancy_r": .2}, {"test_expectancy_r": .1}, {"test_expectancy_r": -.2}, {"test_expectancy_r": -.3}]}}}
+    props = suggest(val, {"weak_regimes": ["breakout"]})
+    kinds = {(p.strategy, p.kind) for p in props}
+    assert ("a", "redesign") in kinds and ("b", "retire") in kinds and ("c", "filter") in kinds
+    assert ("*", "filter") in kinds and all(p.stage == "proposed" for p in props)

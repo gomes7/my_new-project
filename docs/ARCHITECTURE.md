@@ -47,6 +47,7 @@ quantai/
   scanner.py           MODULE F — multi-asset scan
   monitoring.py        MODULE P — performance / data alerts
   journal.py           MODULE Q — append-only hash-chained journal + pattern analysis
+  research.py          MODULE R — evidence -> proposals (stage 'proposed'); promotion only via the gate
   alerts.py            MODULE T — categories, cooldown, webhook
   killswitch.py        MODULE U — kill switch
   api/                 MODULE S — FastAPI + dashboard
