@@ -160,12 +160,15 @@ def cmd_validate(a):
     from quantai.backtest.robustness import monte_carlo, promotion_gate, sensitivity, walk_forward
     from quantai.strategies.base import registry
     rt = _rt()
-    st = rt.settings
+    st = rt.settings.model_copy(deep=True)
+    if a.vol_scaling:
+        st.risk.vol_scaling = True
     data, notes = _load_history(rt, a.symbols or st.universe, a.tf)
     grids = {
         "trend_pullback": {"rr": [1.5, 2.0, 3.0], "touch_atr": [0.3, 0.6]},
         "compression_breakout": {"rr": [1.5, 2.0, 3.0], "stop_atr": [1.0, 1.5]},
         "range_mean_reversion": {"z_entry": [1.8, 2.2], "max_adx": [18.0, 22.0]},
+        "tsmom": {"long_lb": [90, 150], "trail_atr": [2.5, 3.5]},
     }
     report = {"generated_at": utcnow().isoformat(), "timeframe": a.tf, "data": notes, "strategies": {}}
     for name in a.strategies or st.strategies:
@@ -176,6 +179,12 @@ def cmd_validate(a):
         last_params = wf.folds[-1].best_params if wf.folds else {}
         sens = sensitivity(data, a.tf, name, last_params, get_instruments(), st)
         gate = promotion_gate(wf, mc, sens, st.promotion)
+        from quantai.ranking import calibrate, is_monotonic
+        scored = [t for t in wf.oos_trades if t.score is not None]
+        cal = calibrate([t.score for t in scored], [t.r_multiple for t in scored])
+        cal_records = [{"bucket": str(r.bucket), "n": int(r.n), "win_rate": None if r.win_rate != r.win_rate else float(r.win_rate),
+                        "expectancy_r": None if r.expectancy_r != r.expectancy_r else float(r.expectancy_r)}
+                       for r in cal.itertuples()]
         s = wf.oos_summary
         spec = registry.create(name, **last_params).spec()
         entry = {"oos_trades": s["trades"], "oos_expectancy_r": s["expectancy_r"], "ci95": s.get("expectancy_r_ci95"),
@@ -183,6 +192,7 @@ def cmd_validate(a):
                  "mc_p95_dd": mc.max_dd_pct_p95, "mc_median_return_pct": mc.final_return_pct_p50,
                  "risk_of_ruin": mc.prob_dd_exceeds, "folds": [asdict(f) for f in wf.folds],
                  "param_stability": wf.param_stability, "sensitivity": sens.replace({np.nan: None}).to_dict("records"),
+                 "score_calibration": cal_records, "score_monotonic": is_monotonic(cal),
                  "promote": gate.promote, "stage": gate.stage, "passed": gate.passed, "failed": gate.failed,
                  "spec": spec, "seconds": round(time.time() - t0, 1)}
         report["strategies"][name] = entry
@@ -196,12 +206,15 @@ def cmd_validate(a):
             print(f"   test {f.test[0][:10]}..{f.test[1][:10]} params={f.best_params} trades={f.test_trades} E={f.test_expectancy_r:.3f}R")
         if gate.failed:
             print("   failed gates:", ", ".join(gate.failed))
+        print("   score calibration:", ", ".join(f"{c['bucket']} n={c['n']} E={c['expectancy_r'] if c['expectancy_r'] is None else round(c['expectancy_r'], 3)}"
+                                             for c in cal_records if c["n"]), "| monotonic:", is_monotonic(cal))
     # aggregate for the target engine (validated strategies only)
     passed = [v for v in report["strategies"].values() if v["promote"]]
     if passed:
         n = sum(v["oos_trades"] for v in passed)
         report["walk_forward"] = {"expectancy_r": sum(v["oos_expectancy_r"] * v["oos_trades"] for v in passed) / n}
-    rt.write_json("latest_backtest.json", report)
+    report["vol_scaling"] = st.risk.vol_scaling
+    rt.write_json(a.out, report)
 
 
 def cmd_regime_eval(a):
@@ -314,6 +327,8 @@ def main(argv: list[str] | None = None) -> None:
             sp.add_argument("--min-score", type=float, default=None)
         else:
             sp.add_argument("--folds", type=int, default=4)
+            sp.add_argument("--vol-scaling", action="store_true", help="evaluate with volatility-regime risk scaling")
+            sp.add_argument("--out", default="latest_backtest.json")
         sp.set_defaults(f=fn)
     sp = sub.add_parser("regime-eval"); sp.add_argument("symbol"); sp.add_argument("--tf", default="1d"); sp.add_argument("--horizon", type=int, default=10); sp.set_defaults(f=cmd_regime_eval)
     sp = sub.add_parser("paper"); sp.add_argument("--symbols", nargs="*"); sp.add_argument("--tf"); sp.add_argument("--cycles", type=int, default=1)

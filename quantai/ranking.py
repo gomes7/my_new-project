@@ -112,3 +112,11 @@ def calibrate(scores: list[float], r_multiples: list[float], bins: tuple[float, 
     g = df.groupby("bucket", observed=False)
     return pd.DataFrame({"n": g.size(), "win_rate": g["r"].apply(lambda x: (x > 0).mean() if len(x) else np.nan),
                          "expectancy_r": g["r"].mean()}).reset_index()
+
+
+def is_monotonic(cal: pd.DataFrame, min_n: int = 20) -> bool | None:
+    """True if expectancy rises with score across buckets holding >= min_n trades; None if < 2 such buckets."""
+    c = cal[cal["n"] >= min_n]
+    if len(c) < 2:
+        return None
+    return bool(c["expectancy_r"].is_monotonic_increasing)

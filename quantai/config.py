@@ -37,6 +37,9 @@ class RiskCfg(BaseModel):
     max_stop_atr: float = 6.0
     max_spread_to_atr: float = 0.25
     event_blackout_minutes: int = 30
+    vol_scaling: bool = False                 # research flag; enable only if validation supports it
+    vol_risk_multipliers: dict[str, float] = Field(
+        default_factory=lambda: {"high_volatility": 0.5, "normal_volatility": 1.0, "low_volatility": 1.0, "unknown": 0.5})
 
     @model_validator(mode="after")
     def _check(self) -> "RiskCfg":
@@ -48,6 +51,8 @@ class RiskCfg(BaseModel):
             raise ValueError("risk_per_trade_pct exceeds the absolute ceiling")
         if self.risk_per_trade_pct > self.max_risk_per_trade_pct and not self.exceptional_justification.strip():
             raise ValueError("risk above max_risk_per_trade_pct requires exceptional_justification")
+        if any(not 0 < m <= 1.0 for m in self.vol_risk_multipliers.values()):
+            raise ValueError("vol_risk_multipliers must be in (0, 1]: scaling may only reduce risk")
         if self.max_daily_loss_pct > self.max_daily_loss_ceiling_pct or self.max_daily_loss_ceiling_pct > 2.0:
             raise ValueError("max_daily_loss_pct must be <= ceiling, and ceiling <= 2%")
         return self
@@ -149,7 +154,8 @@ class InstrumentSpec(BaseModel):
     annualization_days: int = 252
     spec_source: str = "assumption"
     holding_cost_bps_per_day: float = 0.0  # swap / CFD financing / funding, charged per UTC day held
-    daily_from_intraday: bool = False    # build 1d bars from 1h (used where vendor daily bars fail validation)
+    daily_from_intraday: bool = False
+    crosscheck: dict[str, str] | None = None   # {provider, provider_symbol}: independent source for discrepancy checks    # build 1d bars from 1h (used where vendor daily bars fail validation)
 
     def spread_at(self, price: float) -> float:
         if self.spread is not None:

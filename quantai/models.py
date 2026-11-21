@@ -111,6 +111,9 @@ class SignalCandidate:
     setup_quality: float           # 0..1, strategy's own rule-based quality
     timeframe: str
     max_bars: int = 20
+    vol_regime: str = "unknown"
+    trail_atr: float | None = None   # chandelier trailing stop distance in ATRs (None = fixed stop)
+    allow_partial: bool = True       # take the configured partial exit / breakeven move
     notes: dict[str, Any] = field(default_factory=dict)
     id: str = field(default_factory=lambda: new_id("sig"))
 
@@ -153,6 +156,9 @@ class Position:
     max_bars: int
     bars_held: int = 0
     partial_taken: bool = False
+    trail_atr: float | None = None
+    allow_partial: bool = True
+    extreme: float = 0.0          # best price since entry (high for longs, low for shorts)
     realized_pnl: float = 0.0     # from partial exits, account ccy, net of costs
     fees_paid: float = 0.0        # all costs, for reporting
     entry_costs: float = 0.0      # entry commission + holding costs (deducted from cash, not in realized_pnl)

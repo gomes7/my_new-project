@@ -134,3 +134,31 @@ def test_fx_converter_uses_only_closed_bars():
     assert fx.rate("JPY", idx[0]) is None                      # first bar not closed yet
     assert fx.rate("JPY", idx[1]) == pytest.approx(1 / 150)
     assert fx.rate("EUR", idx[2]) is None and fx.rate("USD", idx[0]) == 1.0
+
+
+def test_trailing_stop_ratchets_and_exits(usd_spec):
+    br = mk(usd_spec)
+    s = submit(br, entry=100, stop=94, rr=50, qty=10)
+    s.trail_atr, s.allow_partial = 2.0, False
+    br.on_bar("TEST", T0, bar(100, 101, 99, 100.5, T0), atr=1.0, bar_seconds=DAY)
+    p = br.positions["TEST"]
+    assert p.stop == 99.0                      # max(94, 101 - 2*1) after the entry bar
+    t1 = T0 + pd.Timedelta(days=1)
+    br.on_bar("TEST", t1, bar(101, 106, 100.5, 105.5, t1), atr=1.0, bar_seconds=DAY)
+    assert p.stop == 104.0                     # ratcheted to 106 - 2
+    t2 = t1 + pd.Timedelta(days=1)
+    br.on_bar("TEST", t2, bar(105, 105.2, 103, 103.5, t2), atr=1.0, bar_seconds=DAY)
+    tr = br.closed[0]
+    assert tr.exit_reason == "trailing_stop" and tr.exit_price == 104.0 and tr.pnl == pytest.approx(40)
+
+
+def test_trailing_stop_never_loosens(usd_spec):
+    br = mk(usd_spec)
+    s = submit(br, d=Direction.SHORT, entry=100, stop=106, rr=50, qty=1)
+    s.trail_atr = 2.0
+    br.on_bar("TEST", T0, bar(100, 101, 97, 98, T0), atr=1.0, bar_seconds=DAY)
+    p = br.positions["TEST"]
+    assert p.stop == 99.0                      # min(106, 97 + 2)
+    t1 = T0 + pd.Timedelta(days=1)
+    br.on_bar("TEST", t1, bar(98, 98.5, 97.5, 98, t1), atr=5.0, bar_seconds=DAY)   # wider ATR must not loosen
+    assert p.stop == 99.0

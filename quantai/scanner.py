@@ -62,7 +62,7 @@ def scan(rt: Runtime, symbols: list[str], strategies: list[Strategy], acct: Acco
         spec = ins[sym]
         frames, qual = {}, {}
         for tf in dict.fromkeys((primary_tf, *context_tfs)):
-            md = rt.fetch(spec, tf)
+            md = rt.fetch(spec, tf, crosscheck=(tf == primary_tf))
             qual[tf] = md.quality
             if not md.df.empty:
                 frames[tf] = md

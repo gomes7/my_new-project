@@ -116,7 +116,8 @@ class SimBroker:
                     initial_stop=s.stop, target=target,
                     risk_amount=abs(fill - s.stop) * pe.decision.quantity * spec.contract_size * fx,
                     fx_to_account=fx, regime=s.regime, signal_id=s.id, max_bars=s.max_bars, fees_paid=fee,
-                    entry_costs=fee, score=pe.score)
+                    entry_costs=fee, score=pe.score, trail_atr=s.trail_atr, allow_partial=s.allow_partial,
+                    extreme=fill)
                 ev.append(SimEvent("filled", t_open.to_pydatetime(), symbol,
                                    {"price": fill, "qty": pe.decision.quantity, "stop": s.stop, "target": target, "signal": s.id}))
 
@@ -134,7 +135,7 @@ class SimBroker:
             gap_stop = (o <= p.stop) if d == 1 else (o >= p.stop)
             tgt_hit = (h >= p.target + half) if d == 1 else (lo <= p.target - half)
             partial_lvl = p.entry_price + d * self.cfg.partial_exit_r * r_dist
-            partial_hit = (not p.partial_taken and self.cfg.partial_exit_fraction > 0 and
+            partial_hit = (p.allow_partial and not p.partial_taken and self.cfg.partial_exit_fraction > 0 and
                            ((h >= partial_lvl + half) if d == 1 else (lo <= partial_lvl - half)))
             if p.entry_time == t_open.to_pydatetime():
                 # Entry bar: intrabar ordering unknown -> only allow the stop (pessimistic).
@@ -143,7 +144,9 @@ class SimBroker:
             if gap_stop:
                 ev.append(self._close(p, o - d * (half + slip), t_open.to_pydatetime(), "stop_gap"))
             elif stop_hit:
-                ev.append(self._close(p, p.stop - d * (half + slip), t_close, "stop" if p.stop == p.initial_stop else "breakeven_stop"))
+                reason = ("stop" if p.stop == p.initial_stop else
+                          "trailing_stop" if p.trail_atr and p.stop != p.entry_price else "breakeven_stop")
+                ev.append(self._close(p, p.stop - d * (half + slip), t_close, reason))
             elif tgt_hit:
                 ev.append(self._close(p, p.target - d * half, t_close, "target"))
             else:
@@ -152,6 +155,11 @@ class SimBroker:
                 p.bars_held += 1
                 if p.bars_held >= p.max_bars and symbol in self.positions:
                     ev.append(self._close(p, c - d * (half + slip), t_close, "time_stop"))
+            # Trailing stop: ratchet AFTER this bar was evaluated, so it only applies from the next bar.
+            if symbol in self.positions and p.trail_atr and atr == atr and atr > 0:
+                p.extreme = max(p.extreme, h) if d == 1 else min(p.extreme, lo)
+                trail = p.extreme - d * p.trail_atr * atr
+                p.stop = max(p.stop, trail) if d == 1 else min(p.stop, trail)
             # holding cost when crossing a UTC day boundary
             if symbol in self.positions and spec.holding_cost_bps_per_day > 0 and t_close.date() != t_open.date():
                 cost = c * p.quantity * spec.contract_size * spec.holding_cost_bps_per_day / 10_000 * p.fx_to_account

@@ -108,7 +108,7 @@ class PaperTrader:
         self._refresh_fx()
         for sym in self.symbols:
             spec = self.ins[sym]
-            md = rt.fetch(spec, self.tf)
+            md = rt.fetch(spec, self.tf, crosscheck=True)
             for a in data_alerts(sym, md.quality):
                 self.alerts.emit(a)
             if md.df.empty:

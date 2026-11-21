@@ -97,3 +97,40 @@ def test_live_kraken():
 def test_live_yahoo_fx_daily_built_from_hourly():
     md = P.YahooChartProvider().get_bars(get_instruments()["EURUSD"], "1d")
     assert "built from 1h" in md.meta.notes and len(md.df) > 300
+
+
+class _Static(P.MarketDataProvider):
+    def __init__(self, name, df=None, err=None):
+        self.name, self._df, self._err = name, df, err
+
+    def fetch_ohlcv(self, provider_symbol, timeframe, start=None):
+        if self._err:
+            raise ProviderError(self._err)
+        return self._df
+
+
+def _cc_runtime(tmp_path, primary, second):
+    from quantai.runtime import Runtime
+    rt = Runtime(data_dir=tmp_path)
+    rt._providers = {"kraken": primary, "yahoo": second}
+    return rt
+
+
+@pytest.mark.parametrize("factor,last_only,expect", [(1.0, False, "ok"), (1.02, False, "failed"), (1.02, True, "failed")])
+def test_crosscheck(tmp_path, factor, last_only, expect):
+    df = synthetic_ohlcv(120, start=(utcnow() - timedelta(days=121)).strftime("%Y-%m-%d"))
+    other = df.copy()
+    if last_only:
+        other.iloc[-1, :4] *= factor
+    else:
+        other.iloc[:, :4] *= factor
+    rt = _cc_runtime(tmp_path, _Static("kraken", df), _Static("yahoo", other))
+    md = rt.fetch(get_instruments()["BTCUSD"], "1d", live=False, crosscheck=True)
+    assert md.quality.status.value == expect
+
+
+def test_crosscheck_unavailable_degrades_not_blocks(tmp_path):
+    df = synthetic_ohlcv(120, start=(utcnow() - timedelta(days=121)).strftime("%Y-%m-%d"))
+    rt = _cc_runtime(tmp_path, _Static("kraken", df), _Static("yahoo", err="down"))
+    md = rt.fetch(get_instruments()["BTCUSD"], "1d", live=False, crosscheck=True)
+    assert not md.quality.blocks_signals and any(i.code == "crosscheck_unavailable" for i in md.quality.issues)

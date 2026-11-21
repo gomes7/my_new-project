@@ -89,7 +89,9 @@ class Strategy(ABC):
             direction=direction, signal_time=(feat.index[i] + pd.Timedelta(seconds=bar_seconds)).to_pydatetime(),
             entry_ref=entry, stop=float(stop), target=float(target), atr=float(r.atr), regime=regime,
             setup_quality=float(max(0.0, min(1.0, quality))), timeframe=timeframe,
-            max_bars=int(self.params.get("max_bars", 20)), notes={**notes, "rr": rr})
+            max_bars=int(self.params.get("max_bars", 20)),
+            vol_regime=str(r.get("vol_regime", "unknown")), trail_atr=self.params.get("trail_atr"),
+            allow_partial=bool(self.params.get("partial", True)), notes={**notes, "rr": rr})
         return sig, self.common_filters(r, regime, direction, timeframe)
 
 
