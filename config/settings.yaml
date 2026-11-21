@@ -1,0 +1,75 @@
+# QUANT AI research configuration. Values are initial TESTING parameters,
+# not claims of optimality. Every change should be committed (version control = audit).
+account:
+  currency: USD
+  starting_capital: 100000.0
+
+mode: research            # research | paper. "live" is intentionally not accepted.
+primary_timeframe: 1d     # signal timeframe; context timeframes 1d/4h/1h feed the MTF analysis
+universe: [EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, USDCAD, EURJPY, GBPJPY,
+           NDX, SPX, DJI, DAX, CAC40, FTSE, GOLD, SILVER, WTI, BRENT, BTCUSD, ETHUSD, SOLUSD]
+strategies: [trend_pullback, compression_breakout, range_mean_reversion]
+
+risk:
+  risk_per_trade_pct: 0.25          # default
+  max_risk_per_trade_pct: 0.50      # normal ceiling
+  absolute_ceiling_pct: 1.0         # requires exceptional_justification
+  exceptional_justification: ""     # must be non-empty to exceed max_risk_per_trade_pct
+  max_daily_loss_pct: 1.0
+  max_daily_loss_ceiling_pct: 2.0
+  max_weekly_loss_pct: 2.5
+  max_drawdown_pct: 8.0
+  max_consecutive_losses: 4
+  consecutive_loss_cooldown_hours: 72
+  max_open_positions: 4
+  max_risk_per_group_pct: 0.75      # correlated-exposure budget per risk group
+  max_total_open_risk_pct: 1.5
+  max_leverage: 5.0
+  min_stop_atr: 0.3                 # stop closer than this x ATR = unreliable (noise)
+  max_stop_atr: 6.0
+  max_spread_to_atr: 0.25           # abnormal execution conditions
+  event_blackout_minutes: 30        # around high-impact scheduled events
+
+target:
+  daily_target_pct: 0.30
+  max_trades_per_day: 3
+
+ranking:
+  thresholds: {exceptional: 90, high: 80, watchlist: 70, insufficient: 60}
+  min_score_to_trade: 80
+
+data:
+  stale_multiplier: 3.0             # last bar older than N x timeframe => stale
+  jump_sigma: 8.0                   # robust z-score for abnormal jump
+  max_missing_ratio: 0.05
+  provider_discrepancy_pct: 0.5
+
+execution:
+  slippage_atr_fraction: 0.05       # adverse slippage on market/stop fills
+  same_bar_sl_tp_policy: stop_first # conservative
+  partial_exit_r: 1.0
+  partial_exit_fraction: 0.5
+
+backtest:
+  annualization_days: 252
+  monte_carlo_runs: 2000
+  seed: 7
+
+promotion:                           # gates from research -> paper
+  min_oos_trades: 60
+  min_oos_profit_factor: 1.15
+  min_oos_expectancy_r: 0.05
+  require_bootstrap_lower_bound_positive: true
+  max_mc_p95_drawdown_pct: 15.0
+  max_sensitivity_degradation: 0.6   # neighbour params may not lose >60% of expectancy
+  min_paper_trades: 30
+  min_paper_days: 30
+
+alerts:
+  cooldown_seconds: 900
+  enabled_categories: [opportunity, setup_confirmed, setup_invalidated, stop_loss, take_profit,
+    risk_limit_approaching, daily_loss_limit, major_event, abnormal_volatility, data_feed,
+    api_error, system, performance]
+
+news:
+  feeds: []    # list of {name, url, credibility(0-1)}; hosts must be allowed by network policy
