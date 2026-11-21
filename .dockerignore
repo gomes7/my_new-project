@@ -1,0 +1,5 @@
+.git
+var
+.env
+tests
+**/__pycache__

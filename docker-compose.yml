@@ -1,0 +1,26 @@
+# Local deployment: API/dashboard + a paper-trading worker + a periodic scanner.
+# Secrets come from .env (never committed). The API is published on localhost only.
+services:
+  api:
+    build: .
+    env_file: [.env]
+    volumes: ["quantai-data:/data", "./config:/app/config:ro"]
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 60s
+    restart: unless-stopped
+  paper:
+    build: .
+    env_file: [.env]
+    volumes: ["quantai-data:/data", "./config:/app/config:ro"]
+    command: ["quantai", "paper", "--cycles", "1000000", "--interval", "900"]
+    restart: unless-stopped
+  scanner:
+    build: .
+    env_file: [.env]
+    volumes: ["quantai-data:/data", "./config:/app/config:ro"]
+    command: ["sh", "-c", "while true; do quantai macro >/dev/null; quantai news >/dev/null; quantai calendar >/dev/null; quantai scan; sleep 3600; done"]
+    restart: unless-stopped
+volumes:
+  quantai-data: {}

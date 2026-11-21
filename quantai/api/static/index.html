@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QUANT AI Console</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#1b1f24;--muted:#5d6670;--line:#e2e5e9;--accent:#2457c5;--pos:#18794e;--neg:#c0362c;--warn:#a15c00;--chip:#eef1f5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1216;--panel:#171b21;--ink:#e6e9ed;--muted:#99a2ad;--line:#262c34;--accent:#7aa2ff;--pos:#4cc38a;--neg:#ff6b5e;--warn:#e0a44a;--chip:#20262e}}
+:root[data-theme="dark"]{--bg:#0f1216;--panel:#171b21;--ink:#e6e9ed;--muted:#99a2ad;--line:#262c34;--accent:#7aa2ff;--pos:#4cc38a;--neg:#ff6b5e;--warn:#e0a44a;--chip:#20262e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2;flex-wrap:wrap}
+header h1{font-size:15px;margin:0;letter-spacing:.04em}
+.badge{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--chip);color:var(--muted)}
+.badge.on{background:var(--neg);color:#fff}
+nav{display:flex;gap:4px;flex-wrap:wrap}nav button{border:0;background:none;color:var(--muted);padding:6px 10px;border-radius:6px;cursor:pointer;font:inherit}
+nav button.active{background:var(--chip);color:var(--ink);font-weight:600}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h3{margin:0 0 4px;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);font-size:12px}
+section{display:none}section.active{display:block}
+h2{font-size:14px;margin:20px 0 8px}
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;font-size:13px}
+th{color:var(--muted);font-weight:500;font-size:12px}tr:last-child td{border-bottom:0}
+.pos{color:var(--pos)}.neg{color:var(--neg)}.warn{color:var(--warn)}.muted{color:var(--muted)}
+.msg{padding:14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-weight:600}
+.bar{height:8px;background:var(--chip);border-radius:4px;overflow:hidden;margin-top:6px}.bar>div{height:100%;background:var(--accent)}
+svg text{fill:var(--muted);font-size:11px}
+.wrap{white-space:normal;max-width:420px}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+@media (max-width:600px){main{padding:12px 16px}.kpi{font-size:18px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>QUANT AI</h1>
+  <span class="badge" id="mode">mode</span>
+  <span class="badge" id="ks">kill switch</span>
+  <span class="badge" id="updated">—</span>
+  <nav id="nav"></nav>
+</header>
+<main>
+<section id="overview">
+  <div class="grid" id="kpis"></div>
+  <div id="targetmsg" class="msg"></div>
+  <h2>Open positions</h2><div class="tbl" id="ov-pos"></div>
+</section>
+<section id="intel">
+  <h2>Macro regime (FRED, rule-based)</h2><div class="grid" id="macro-kpis"></div><div class="tbl" id="macro-ev"></div>
+  <h2>Scored events</h2><div class="tbl" id="events"></div>
+  <h2>Upcoming scheduled events</h2><div class="tbl" id="cal"></div>
+</section>
+<section id="scanner">
+  <div id="scanmsg" class="msg"></div>
+  <h2>Approved opportunities</h2><div class="tbl" id="opps"></div>
+  <h2>Rejected candidates</h2><div class="tbl" id="rej"></div>
+  <h2>Markets scanned</h2><div class="tbl" id="mkts"></div>
+</section>
+<section id="trades"><h2>Active trades</h2><div class="tbl" id="act"></div><h2>Pending simulated orders</h2><div class="tbl" id="pend"></div></section>
+<section id="performance">
+  <div class="grid" id="perf-kpis"></div>
+  <div class="card"><h3>Paper equity</h3><div id="eqchart"></div></div>
+  <h2>Latest validation (backtest / walk-forward)</h2><div class="tbl" id="bt"></div>
+  <h2>Closed paper trades</h2><div class="tbl" id="closed"></div>
+</section>
+<section id="journal"><h2>Journal analysis</h2><div class="tbl" id="jan"></div><h2>Recent journal entries</h2><div class="tbl" id="jrn"></div></section>
+<section id="health"><div class="grid" id="hk"></div><h2>Data status</h2><div class="tbl" id="ds"></div><h2>Critical alerts / errors</h2><div class="tbl" id="errs"></div><h2>Recent alerts</h2><div class="tbl" id="alerts"></div></section>
+</main>
+<script>
+const TABS=[["overview","Overview"],["intel","Market intelligence"],["scanner","Scanner"],["trades","Active trades"],["performance","Performance"],["journal","Journal"],["health","System health"]];
+const nav=document.getElementById("nav");
+TABS.forEach(([id,label],i)=>{const b=document.createElement("button");b.textContent=label;b.onclick=()=>show(id);b.dataset.id=id;nav.appendChild(b)});
+function show(id){document.querySelectorAll("section").forEach(s=>s.classList.toggle("active",s.id===id));nav.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.id===id));try{localStorage.setItem("tab",id)}catch(e){}}
+let start="overview";try{start=localStorage.getItem("tab")||start}catch(e){}show(start);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=(v,d=2)=>v==null||isNaN(v)?"—":Number(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn=v=>v==null?"":v>0?"pos":v<0?"neg":"";
+function table(el,rows,cols){const t=document.getElementById(el);if(!rows||!rows.length){t.innerHTML='<div class="card muted">No data.</div>';return}
+ t.innerHTML="<table><thead><tr>"+cols.map(c=>`<th>${esc(c[0])}</th>`).join("")+"</tr></thead><tbody>"+rows.map(r=>"<tr>"+cols.map(c=>{const v=c[1](r);const cls=c[2]?c[2](r):"";return `<td class="${cls}">${v}</td>`}).join("")+"</tr>").join("")+"</tbody></table>"}
+function kpis(el,items){document.getElementById(el).innerHTML=items.map(([h,v,s,cls])=>`<div class="card"><h3>${esc(h)}</h3><div class="kpi ${cls||""}">${v}</div>${s?`<div class="sub">${s}</div>`:""}</div>`).join("")}
+async function j(u){try{const r=await fetch(u);return r.ok?await r.json():null}catch(e){return null}}
+function line(el,pts){const W=900,H=220,P=36;const d=document.getElementById(el);if(!pts||pts.length<2){d.innerHTML='<div class="muted">Equity curve appears after paper-trading cycles.</div>';return}
+ const ys=pts.map(p=>p[1]),mn=Math.min(...ys),mx=Math.max(...ys),r=mx-mn||1;const x=i=>P+i*(W-2*P)/(pts.length-1),y=v=>H-P-(v-mn)*(H-2*P)/r;
+ const path=pts.map((p,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(p[1]).toFixed(1)).join("");
+ d.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Equity curve"><line x1="${P}" x2="${W-P}" y1="${H-P}" y2="${H-P}" stroke="var(--line)"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/><text x="${P}" y="14">${num(mx)}</text><text x="${P}" y="${H-P+16}">${num(mn)}</text><text x="${W-P}" y="${H-P+16}" text-anchor="end">${esc(pts[pts.length-1][0].slice(0,16))}</text></svg>`}
+async function refresh(){
+ const [h,ov,sc,mac,pf,jr,ja,al]=await Promise.all([j("/health"),j("/api/overview"),j("/api/scan"),j("/api/macro"),j("/api/performance"),j("/api/journal?limit=60"),j("/api/journal/analysis"),j("/api/alerts?limit=50")]);
+ document.getElementById("updated").textContent="updated "+new Date().toLocaleTimeString();
+ if(h){document.getElementById("mode").textContent="mode: "+h.mode+" · live trading disabled";const ks=document.getElementById("ks");ks.textContent=h.kill_switch.active?"KILL SWITCH ACTIVE":"kill switch off";ks.classList.toggle("on",!!h.kill_switch.active);
+  kpis("hk",[["Status",esc(h.status),"",h.status==="ok"?"pos":"neg"],["Journal integrity",h.journal_integrity.ok?"verified":"FAILED","hash chain",h.journal_integrity.ok?"pos":"neg"],["Last scan",h.last_scan?esc(h.last_scan.slice(0,16)):"never",h.scan_age_hours!=null?num(h.scan_age_hours,1)+" h ago":""],["Paper cycle",h.paper_last_cycle?esc(h.paper_last_cycle.slice(0,16)):"never"],["Risk engine",esc(h.risk_engine)],["Macro as of",esc(h.macro_asof||"—")]]);
+  table("ds",Object.entries(h.data_status||{}),[["Symbol",r=>esc(r[0])],["Quality by timeframe",r=>Object.entries(r[1]).map(([k,v])=>`${esc(k)}: <span class="${v==='ok'?'pos':v==='failed'?'neg':'warn'}">${esc(v)}</span>`).join(" · ")],["Delayed / unverified feed",r=>(h.delayed_data_warning||[]).includes(r[0])?'<span class="warn">yes</span>':"no"]]);
+  table("errs",h.errors,[["Time",r=>esc((r.timestamp||"").slice(0,19))],["Category",r=>esc(r.category)],["Symbol",r=>esc(r.symbol||"")],["Situation",r=>esc(r.situation)],["Reason",r=>`<span class="wrap">${esc(r.reason)}</span>`]]);}
+ if(ov){const t=ov.daily_target;kpis("kpis",[["Capital",num(ov.capital)],["Equity",num(ov.equity)],["Daily P&L",num(ov.day_pnl),"",sgn(ov.day_pnl)],["Monthly P&L",num(ov.month_pnl),"",sgn(ov.month_pnl)],["Daily target",num(t.daily_target_amount),`${num(t.daily_target_pct)}% · progress ${num(100*Math.max(0,ov.day_pnl)/t.daily_target_amount,0)}%`],["Daily risk used",num(ov.daily_risk_used),`budget ${num(ov.daily_risk_budget)}`+`<div class="bar"><div style="width:${Math.min(100,100*ov.daily_risk_used/ov.daily_risk_budget)}%"></div></div>`],["Drawdown",num(ov.drawdown_pct)+"%","",ov.drawdown_pct>0?"neg":""],["Open positions",ov.open_positions.length,ov.pending.length+" pending"]]);
+  document.getElementById("targetmsg").textContent=t.message;
+  const pc=[["Symbol",r=>esc(r.symbol)],["Side",r=>esc(r.direction)],["Strategy",r=>esc(r.strategy)],["Qty",r=>num(r.qty,4)],["Entry",r=>num(r.entry,5)],["Current",r=>num(r.current,5)],["Stop",r=>num(r.stop,5)],["Target",r=>num(r.target,5)],["Unrealized",r=>num(r.unrealized),r=>sgn(r.unrealized)],["Risk",r=>num(r.risk)],["Status",r=>esc(r.status)]];
+  table("ov-pos",ov.open_positions,pc);table("act",ov.open_positions,pc);table("pend",ov.pending,[["Symbol",r=>esc(r.symbol)],["Strategy",r=>esc(r.strategy)],["Qty",r=>num(r.qty,4)],["Fill",()=>"next bar open"]]);}
+ if(sc){document.getElementById("scanmsg").textContent=(sc.message||"")+(sc.generated_at?` — ${sc.generated_at.slice(0,16)} UTC, timeframe ${sc.primary_timeframe}`:"");
+  const oc=[["Symbol",r=>esc(r.symbol)],["Side",r=>esc(r.direction)],["Strategy",r=>esc(r.strategy)],["Regime",r=>esc(r.regime)],["Score",r=>num(r.score,1)],["Entry zone",r=>num(r.entry_zone[0],5)+" – "+num(r.entry_zone[1],5)],["Stop",r=>num(r.stop,5)],["Target",r=>num(r.target,5)],["R:R",r=>num(r.reward_risk)],["Reasons",r=>`<span class="wrap">${esc((r.reasons||[]).join(", "))}</span>`]];
+  table("opps",sc.opportunities,oc);table("rej",sc.rejected,oc);
+  table("mkts",sc.markets,[["Symbol",r=>esc(r.symbol)],["Status",r=>esc(r.status)],["Last close",r=>num(r.last_close,5)],["Regime",r=>esc(r.regime||"")],["Vol",r=>esc(r.vol_regime||"")],["MTF bias",r=>esc(r.bias||""),r=>r.bias==="bullish"?"pos":r.bias==="bearish"?"neg":""],["Alignment",r=>num(r.mtf_alignment)],["ATR",r=>num(r.atr,4)],["Feed",r=>esc(r.provider+" / "+(r.delay_status||"")),r=>r.delay_status==="realtime"?"":"warn"],["Quality",r=>Object.entries(r.quality||{}).map(([k,v])=>`${esc(k)}:${esc(v)}`).join(" ")]]);}
+ if(mac){const m=mac.macro;if(m){kpis("macro-kpis",[["Growth",esc(m.growth)],["Inflation",esc(m.inflation)],["Liquidity",esc(m.liquidity)],["Risk appetite",esc(m.risk)],["Volatility",esc(m.volatility)],["Labels",esc((m.labels||[]).join(", ")||"—"),"as of "+esc(m.asof)]]);
+  table("macro-ev",m.evidence,[["Series",r=>esc(r.series)],["Value",r=>num(r.value,3)],["Date",r=>esc(r.date)],["Note",r=>esc(r.note)]]);}
+  table("events",(mac.events&&mac.events.events)||[],[["Score",r=>num(r.score,1)],["Title",r=>`<span class="wrap">${esc(r.title)}</span>`],["Source",r=>esc(r.source)],["Type",r=>esc(r.event_type)],["Categories",r=>esc(r.categories.join(", "))],["Confirmed",r=>r.confirmed?"yes ("+r.confirmation_count+")":"no"],["Hypothesis",r=>esc(r.direction_hypothesis)+" ("+num(r.hypothesis_confidence)+")"],["Vol impact",r=>esc(r.volatility_impact)]]);
+  table("cal",(mac.calendar&&mac.calendar.events)||[],[["Time (UTC)",r=>esc(r.time)],["Event",r=>esc(r.title)],["Ccy",r=>esc(r.currency)],["Impact",r=>esc(r.impact)]]);}
+ if(pf){const p=pf.paper||{};kpis("perf-kpis",[["Paper trades",p.trades??0],["Win rate",p.trades?num(100*p.win_rate,1)+"%":"—"],["Profit factor",p.trades?num(p.profit_factor):"—"],["Expectancy",p.trades?num(p.expectancy_r)+"R":"—"],["Max drawdown",p.trades!=null?num(p.max_drawdown_pct)+"%":"—"],["Sharpe (daily)",p.trades?num(p.sharpe):"—"]]);
+  line("eqchart",pf.equity_curve);
+  const b=pf.backtest;const rows=b?Object.entries(b.strategies||{}).map(([k,v])=>({k,...v})):[];
+  table("bt",rows,[["Strategy",r=>esc(r.k)],["OOS trades",r=>r.oos_trades],["OOS expectancy",r=>num(r.oos_expectancy_r,3)+"R",r=>sgn(r.oos_expectancy_r)],["95% CI",r=>r.ci95?num(r.ci95[0],3)+" … "+num(r.ci95[1],3):"—"],["OOS PF",r=>num(r.oos_profit_factor)],["MC p95 DD",r=>num(r.mc_p95_dd)+"%"],["Promotion",r=>r.promote?'<span class="pos">paper candidate</span>':'<span class="muted">research only</span>'],["Failed gates",r=>`<span class="wrap">${esc((r.failed||[]).join(", "))}</span>`]]);
+  table("closed",(pf.trades||[]).slice().reverse(),[["Exit",r=>esc(String(r.exit_time).slice(0,16))],["Symbol",r=>esc(r.symbol)],["Strategy",r=>esc(r.strategy)],["Side",r=>r.direction===1?"long":"short"],["Entry",r=>num(r.entry_price,5)],["Exit px",r=>num(r.exit_price,5)],["P&L",r=>num(r.pnl),r=>sgn(r.pnl)],["R",r=>num(r.r_multiple),r=>sgn(r.r_multiple)],["Reason",r=>esc(r.exit_reason)],["Regime",r=>esc(r.regime)]]);}
+ if(ja){table("jan",Object.entries(ja).map(([k,v])=>({k,v})),[["Metric",r=>esc(r.k)],["Value",r=>`<span class="wrap">${esc(typeof r.v==="object"?JSON.stringify(r.v):r.v)}</span>`]]);}
+ if(jr){table("jrn",jr,[["#",r=>r.seq],["Time",r=>esc(r.ts.slice(0,19))],["Kind",r=>esc(r.kind)],["Symbol",r=>esc(r.symbol||"")],["Strategy",r=>esc(r.strategy||"")],["Summary",r=>{const p=r.payload;const s=p.decision?`${p.decision} ${(p.reasons||[]).join(", ")}`:p.message||p.reason||p.situation||"";return `<span class="wrap">${esc(s)}</span>`}]]);}
+ if(al){table("alerts",al,[["Time",r=>esc((r.timestamp||"").slice(0,19))],["Severity",r=>esc(r.severity),r=>r.severity==="critical"?"neg":r.severity==="warning"?"warn":""],["Category",r=>esc(r.category)],["Symbol",r=>esc(r.symbol||"")],["Situation",r=>esc(r.situation)],["Reason",r=>`<span class="wrap">${esc(r.reason)}</span>`],["Action",r=>esc(r.action)]]);}
+}
+refresh();setInterval(refresh,30000);
+</script>
+</body>
+</html>

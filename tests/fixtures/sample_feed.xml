@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Test feed</title>
+<item><title>Fed holds rates steady, signals patience on inflation</title><link>https://example.com/a</link><pubDate>Fri, 20 Nov 2026 14:00:00 GMT</pubDate><description>FOMC statement.</description></item>
+<item><title>Oil surges after unexpected OPEC supply cut</title><link>https://example.com/b</link><pubDate>Fri, 20 Nov 2026 12:00:00 GMT</pubDate></item>
+<item><title>Chipmaker reportedly considering acquisition of rival</title><link>https://example.com/c</link><pubDate>Fri, 20 Nov 2026 10:00:00 GMT</pubDate></item>
+<item><title>Local bakery wins award</title><link>https://example.com/d</link><pubDate>Fri, 20 Nov 2026 09:00:00 GMT</pubDate></item>
+</channel></rss>
