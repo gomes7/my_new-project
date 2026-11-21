@@ -9,7 +9,7 @@ from quantai.config import InstrumentSpec, Settings, get_settings
 from quantai.data.http import ProviderError
 from quantai.data.providers import MarketDataProvider, build_provider
 from quantai.data.store import BarStore
-from quantai.data.validation import validate
+from quantai.data.validation import compare_providers, validate
 from quantai.journal import Journal
 from quantai.killswitch import KillSwitch
 from quantai.logging_setup import get_logger
@@ -34,7 +34,7 @@ class Runtime:
             self._providers[name] = build_provider(name, self.data_dir / "csv")
         return self._providers[name]
 
-    def fetch(self, spec: InstrumentSpec, tf: str, live: bool = True) -> MarketData:
+    def fetch(self, spec: InstrumentSpec, tf: str, live: bool = True, crosscheck: bool = False) -> MarketData:
         """Fetch + validate. On provider failure returns an EMPTY, FAILED MarketData — never cached
         bars masquerading as live data."""
         prov = self.provider(spec.provider)
@@ -53,7 +53,26 @@ class Runtime:
             md.quality = q
             return md
         validate(md, self.settings.data, spec.asset_class, live=live)
+        if crosscheck and spec.crosscheck and not md.quality.blocks_signals:
+            self._crosscheck(spec, tf, md)
         return md
+
+    def _crosscheck(self, spec: InstrumentSpec, tf: str, md: MarketData) -> None:
+        """Compare against an independent provider; a FAILED discrepancy blocks signals, an unavailable
+        second source only degrades (the primary data itself passed validation)."""
+        cc = spec.crosscheck or {}
+        try:
+            other = self.provider(cc["provider"]).get_bars(spec, tf, provider_symbol=cc["provider_symbol"])
+        except ProviderError as e:
+            md.quality.issues.append(QualityIssue("crosscheck_unavailable", QualityStatus.DEGRADED, str(e)))
+            if md.quality.status == QualityStatus.OK:
+                md.quality.status = QualityStatus.DEGRADED
+            return
+        rep = compare_providers(md, other, self.settings.data.provider_discrepancy_pct, window=60)
+        md.quality.issues += rep.issues
+        rank = {QualityStatus.OK: 0, QualityStatus.DEGRADED: 1, QualityStatus.FAILED: 2}
+        if rank[rep.status] > rank[md.quality.status]:
+            md.quality.status = rep.status
 
     def write_json(self, name: str, obj: dict) -> Path:
         p = self.data_dir / name

@@ -157,7 +157,9 @@ class RiskEngine:
             fx = 0.0
 
         # Sizing
-        risk_amount = acct.equity * self.risk_pct / 100
+        mult = c.vol_risk_multipliers.get(sig.vol_regime, min(c.vol_risk_multipliers.values())) if c.vol_scaling else 1.0
+        checks["vol_risk_multiplier"] = mult
+        risk_amount = acct.equity * self.risk_pct / 100 * mult
         qty = 0.0
         if fx > 0 and dist > 0:
             per_unit = (dist * spec.contract_size + self.estimated_cost_per_unit(spec, sig)) * fx

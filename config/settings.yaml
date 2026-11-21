@@ -8,7 +8,7 @@ mode: research            # research | paper. "live" is intentionally not accept
 primary_timeframe: 1d     # signal timeframe; context timeframes 1d/4h/1h feed the MTF analysis
 universe: [EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, USDCAD, EURJPY, GBPJPY,
            NDX, SPX, DJI, DAX, CAC40, FTSE, GOLD, SILVER, WTI, BRENT, BTCUSD, ETHUSD, SOLUSD]
-strategies: [trend_pullback, compression_breakout, range_mean_reversion]
+strategies: [trend_pullback, compression_breakout, range_mean_reversion, tsmom]
 
 risk:
   risk_per_trade_pct: 0.25          # default
@@ -29,6 +29,8 @@ risk:
   max_stop_atr: 6.0
   max_spread_to_atr: 0.25           # abnormal execution conditions
   event_blackout_minutes: 30        # around high-impact scheduled events
+  vol_scaling: false                # research flag: scale risk by volatility regime (multipliers <= 1)
+  vol_risk_multipliers: {high_volatility: 0.5, normal_volatility: 1.0, low_volatility: 1.0, unknown: 0.5}
 
 target:
   daily_target_pct: 0.30

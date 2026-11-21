@@ -83,3 +83,12 @@ def test_promotion_gate_requires_significance():
     assert not g.promote and "bootstrap_ci95_lower>0" in g.failed
     WF.oos_summary = {**WF.oos_summary, "expectancy_r_ci95": (0.01, 0.2)}
     assert promotion_gate(WF(), mc, None, PromotionCfg()).promote
+
+
+def test_score_calibration_monotonic_flag():
+    from quantai.ranking import calibrate, is_monotonic
+    cal = calibrate([65] * 30 + [75] * 30 + [85] * 30, [-0.2] * 30 + [0.0] * 30 + [0.3] * 30)
+    assert is_monotonic(cal) is True
+    cal = calibrate([65] * 30 + [85] * 30, [0.3] * 30 + [-0.2] * 30)
+    assert is_monotonic(cal) is False
+    assert is_monotonic(calibrate([85] * 5, [1.0] * 5)) is None

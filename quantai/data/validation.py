@@ -133,9 +133,13 @@ def validate(md: MarketData, cfg: DataCfg, asset_class: str = "crypto",
     return rep
 
 
-def compare_providers(a: MarketData, b: MarketData, tolerance_pct: float) -> QualityReport:
-    """Cross-check closes of the same instrument from two providers on overlapping bars."""
+def compare_providers(a: MarketData, b: MarketData, tolerance_pct: float, window: int | None = None) -> QualityReport:
+    """Cross-check closes of the same instrument from two providers on overlapping bars.
+    FAILED if >5% of compared bars differ by more than `tolerance_pct`, or if the LATEST common bar does
+    (the bar a signal would act on)."""
     j = a.df[["close"]].join(b.df[["close"]], how="inner", lsuffix="_a", rsuffix="_b")
+    if window:
+        j = j.iloc[-window:]
     if j.empty:
         return QualityReport(QualityStatus.DEGRADED, [QualityIssue("no_overlap", QualityStatus.DEGRADED, "no common timestamps")])
     diff = (j["close_a"] / j["close_b"] - 1).abs() * 100
@@ -143,9 +147,11 @@ def compare_providers(a: MarketData, b: MarketData, tolerance_pct: float) -> Qua
     issues = []
     if bad:
         sev = QualityStatus.FAILED if bad / len(j) > 0.05 else QualityStatus.DEGRADED
+        if diff.iloc[-1] > tolerance_pct:
+            sev = QualityStatus.FAILED
         issues.append(QualityIssue("provider_discrepancy", sev,
                                    f"{a.meta.source} vs {b.meta.source}: {bad}/{len(j)} bars differ > {tolerance_pct}% "
-                                   f"(max {diff.max():.2f}%)", bad))
+                                   f"(max {diff.max():.2f}%, latest {diff.iloc[-1]:.2f}%)", bad))
     status = issues[0].severity if issues else QualityStatus.OK
     return QualityReport(status, issues)
 

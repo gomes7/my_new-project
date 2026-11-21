@@ -5,12 +5,12 @@ prerequisites below are unmet.
 
 | Area | State | Blocking? |
 |---|---|---|
-| Strategy performance | No strategy passed the walk-forward promotion gate (see VALIDATION.md). | **Yes** |
+| Strategy performance | No strategy passed the walk-forward promotion gate (see VALIDATION.md). Best candidate `tsmom`: +0.048 R OOS, CI includes zero. Opportunity score not calibrated. | **Yes** |
 | Paper-trading record | None yet. Gate requires ≥ 30 paper trades over ≥ 30 days consistent with validated expectations. | **Yes** |
 | Drawdown | Monte Carlo drawdown estimates exist only for unvalidated strategies. | Yes |
 | Execution assumptions | Conservative bar-based fills (pessimistic intrabar ordering, half-spread per fill, ATR slippage, commissions, holding costs). Spreads for Yahoo-sourced instruments are **assumed**, not observed. Crypto spread observed live from Kraken. | Yes, for FX/indices |
 | Risk controls | Implemented and tested: sizing, daily/weekly/drawdown limits, loss-streak cooldown, exposure & correlation limits, leverage, stop sanity, spread, data quality, blackouts, kill switch. | No |
-| Data reliability | Kraken and FRED reliable. Yahoo is unofficial with documented defects (monthly-for-daily, inconsistent FX daily bars, partial bars, negative WTI prints). Needs a licensed bid/ask feed. Only one crypto source → no live cross-provider check. | **Yes** |
+| Data reliability | Kraken and FRED reliable. Yahoo is unofficial with documented defects (monthly-for-daily, inconsistent FX daily bars, partial bars, negative WTI prints). Needs a licensed bid/ask feed. Crypto is now cross-checked live (Kraken vs Yahoo aggregate); FX/indices/commodities still have a single source. | **Yes** |
 | Security | Secrets via env only, log redaction, admin token for mutations, API bound to localhost, append-only hash-chained journal. Not done: authentication for read endpoints, TLS, secrets manager, backups schedule, external error monitoring. | Yes, before any remote deployment |
 | Operational stability | Single-host processes; no supervisor beyond docker restart; no exchange-session calendars for indices/commodities. | Yes |
 | Broker integration | None. Needs an adapter matching `SimBroker` semantics, contract-spec validation, reconciliation, idempotent order IDs, and trade-only credentials without withdrawal permission. | **Yes** |

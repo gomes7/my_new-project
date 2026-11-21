@@ -142,3 +142,15 @@ def test_target_engine_never_forces_trades():
     assert r.risk_needed_per_trade_pct > 0.25        # reported, never applied
     r = daily_target(100_000, 100_000, 0.3, 0.25, 1.0, 3, None, None, 2)
     assert r.status == "unvalidated"
+
+
+def test_vol_scaling_only_reduces_risk(usd_spec):
+    base = RiskEngine(RiskCfg()).evaluate(sig(), usd_spec, acct(), ctx())
+    hv = sig()
+    hv.vol_regime = "high_volatility"
+    off = RiskEngine(RiskCfg()).evaluate(hv, usd_spec, acct(), ctx())
+    on = RiskEngine(RiskCfg(vol_scaling=True)).evaluate(hv, usd_spec, acct(), ctx())
+    assert off.quantity == base.quantity and on.quantity == pytest.approx(base.quantity / 2, abs=0.001)
+    assert on.checks["vol_risk_multiplier"] == 0.5
+    with pytest.raises(ValueError):
+        RiskCfg(vol_risk_multipliers={"high_volatility": 1.5})

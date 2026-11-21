@@ -69,3 +69,60 @@ FTSE breakout short (rejected: relative volume filter). WTI blocked by data qual
 * Get longer, licensed FX/crypto history so OOS folds are not dominated by indices.
 * Test hypotheses that the calibration supports: volatility-regime-conditioned position sizing; trend following on longer horizons with roll-adjusted futures; mean reversion on intraday bars with real bid/ask.
 * Each new hypothesis = new strategy version, fingerprinted and journaled, through the same gate.
+
+---
+
+# Phase 2 validation (2026-11-21)
+
+Same universe, folds, costs and gate as above. Both runs: `quantai validate` and
+`quantai validate --vol-scaling`.
+
+**Bottom line: still no strategy promoted.** The new `tsmom` is the best so far, but its
+confidence interval includes zero and it is sensitive to its parameters.
+
+## Out-of-sample results
+
+| Strategy | OOS trades | Expectancy | 95% CI | PF | Max DD | MC p95 DD | Gate |
+|---|---|---|---|---|---|---|---|
+| trend_pullback | 245 | +0.002 R | −0.108 … +0.119 | 1.08 | 3.7% | 7.5% | research |
+| compression_breakout | 222 | −0.183 R | −0.332 … −0.036 | 0.75 | 10.3% | 16.5% | research (retire) |
+| range_mean_reversion | 6 | −0.577 R | — | 0.36 | 0.7% | 1.7% | research (redesign) |
+| **tsmom (new)** | 214 | **+0.048 R** | −0.087 … +0.193 | 1.10 | 2.1% | 5.7% | research |
+
+`tsmom` per fold: +0.015, +0.070, +0.134, −0.022 R (3 of 4 positive). Walk-forward picked
+`long_lb=150` in every fold (stable), `trail_atr` 2.5 → 3.5. Failed gates: profit factor
+(1.10 < 1.15), expectancy (0.048 < 0.05), bootstrap lower bound ≤ 0, and parameter sensitivity:
+some ±20% changes removed most of the edge (degradation up to 1.0). It is a candidate for more
+data, not for paper trading.
+
+## Volatility-regime risk scaling (risk ×0.5 in high-volatility regimes)
+
+| Strategy | Expectancy off → on | Max DD off → on | MC p95 DD off → on |
+|---|---|---|---|
+| trend_pullback | +0.002 → +0.040 R | 3.7% → 2.7% | 7.5% → 6.1% |
+| tsmom | +0.048 → +0.043 R | 2.1% → 2.1% | 5.7% → 5.9% |
+| compression_breakout | −0.183 → −0.184 R | 10.3% → 9.7% | 16.5% → 16.5% |
+
+Reading: R is normalised per trade, so scaling mostly changes *which* trades fit inside the
+account risk limits, not per-trade outcomes. It lowered drawdown for trend_pullback and was
+neutral elsewhere. The effect is small and not significant, so **`vol_scaling` stays off**.
+
+## Score calibration (realised R by score bucket, OOS)
+
+| Strategy | < 60 | 60–70 | 70–80 | Monotonic? |
+|---|---|---|---|---|
+| trend_pullback | +0.12 (n=37) | +0.01 (n=170) | −0.16 (n=38) | **no (inverted)** |
+| compression_breakout | −0.09 (n=107) | −0.26 (n=114) | (n=1) | no |
+| tsmom | — | +0.02 (n=124) | +0.09 (n=90) | yes |
+
+In backtests the score lacks multi-timeframe, macro and news inputs (they count as neutral),
+and **no OOS trade scored ≥ 80**. So the live threshold of 80 is not calibrated: it works as a
+strict filter, not as a validated quality measure. For trend_pullback the score ranks trades
+backwards. Before score-based gating can be trusted, its weights need re-fitting on training
+folds only and then checking out of sample.
+
+## Crypto cross-provider check
+
+Kraken vs Yahoo aggregate daily closes over 720 days: median absolute gap 0.017% (BTC),
+0.021% (ETH), 0.040% (SOL); p95 0.08–0.18%; 1–2 days above 0.5%. A latest-bar gap above 0.5%
+now blocks signals; an unavailable second source only degrades.
